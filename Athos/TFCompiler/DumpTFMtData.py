@@ -53,7 +53,7 @@ def save_graph_metadata(output_tensor, sess, feed_dict):
   with open('./graphDef.mtdata', 'w') as f:
     f.write(str(optimized_graph_def))
   with open('./graphDef.bin', 'w') as f:
-    f.write(optimized_graph_def.SerializeToString())
+    f.write(str(optimized_graph_def.SerializeToString()))
 
   # Save size information for tensors on which output depends
   tensors_to_evaluate = []
