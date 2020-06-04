@@ -12,6 +12,7 @@ LIBS := -Wl,-Bstatic -static-libgcc -static-libstdc++ -lcrypto -lssl -Wl,-Bdynam
 OBJ_INCLUDES := -I 'lib_eigen/' -I 'src/'
 UTIL_INCLUDES := $($(OBJ_INCLUDES), -L./)
 
+.SECONDARY:
 
 all: FLAGS += -O3 -g
 all: $(patsubst %.cpp, %.x, $(wildcard *.cpp))
