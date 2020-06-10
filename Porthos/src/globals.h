@@ -76,7 +76,9 @@ using namespace std;
 #define DEBUG_PRINT "SIGNED"
 #define CPP_ASSEMBLY 1
 #define PARALLEL true
+#ifndef NO_CORES
 #define NO_CORES 4
+#endif
 #define NUM_ITERATIONS 1
 
 //Sizes for debug/test_functions
