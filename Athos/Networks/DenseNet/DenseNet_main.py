@@ -25,7 +25,7 @@ SOFTWARE.
 import numpy
 import argparse
 import os, sys, time
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import _pickle as pickle
 
 import nets_factory
@@ -88,8 +88,6 @@ with tf.Session() as sess:
     modelPath = './PreTrainedModel/tf-densenet121.ckpt'
     saver = tf.train.Saver()
     saver.restore(sess, modelPath)
-    if args.savePreTrainedWeightsInt or args.savePreTrainedWeightsFloat or args.saveImgAndWtData:
-      DumpTFMtData.updateWeightsForBN(optimized_graph_def, sess, feed_dict)
 
   predictions = None
   if args.runPrediction:
@@ -101,15 +99,6 @@ with tf.Session() as sess:
 
   print(predictions)
 
-  trainVarsName = []
-  for node in optimized_graph_def.node:
-    if node.op=="VariableV2":
-      trainVarsName.append(node.name)
-  trainVars = list(map(lambda x : tf.get_default_graph().get_operation_by_name(x).outputs[0] , trainVarsName))
   if args.saveImgAndWtData:
-    DumpTFMtData.dumpImgAndWeightsData(sess, images[0], trainVars, 'DenseNet_img_input.inp', args.scalingFac)
-  if args.savePreTrainedWeightsInt:
-    DumpTFMtData.dumpTrainedWeightsInt(sess, trainVars, 'DenseNet_img_input_weights_int.inp', args.scalingFac, 'w')
-  if args.savePreTrainedWeightsFloat:
-    DumpTFMtData.dumpTrainedWeightsFloat(sess, trainVars, 'DenseNet_img_input_weights_float.inp', 'w')
+    DumpTFMtData.dumpImgAndWeightsData2(sess, images[0], 'DenseNet_img_input.inp', args.scalingFac)
 

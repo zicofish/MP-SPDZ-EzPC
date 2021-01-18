@@ -23,33 +23,13 @@ SOFTWARE.
 '''
 
 import numpy
-import tensorflow as tf
-from tensorflow.tools.graph_transforms import TransformGraph
-
-def get_optimized_graph_def(output_tensor):
-  #First save the graph def
-  graph_def = tf.get_default_graph().as_graph_def()
-  transforms = [
-   'remove_nodes(op=Identity)', 
-   'strip_unused_nodes',
-   'fold_batch_norms',
-   'fold_constants(ignore_errors=true)'
-   # 'merge_duplicate_nodes', # Removing this otherwise in the output graph the topological ordering is broken - fix some other day #TODO_nishkum
-  ]
-  optimized_graph_def = TransformGraph(graph_def, [], [output_tensor.name], transforms)
-  return optimized_graph_def
+import tensorflow.compat.v1 as tf
+tf.disable_eager_execution()
 
 def save_graph_metadata(output_tensor, sess, feed_dict):
   #First save the graph def
   graph_def = tf.get_default_graph().as_graph_def()
-  transforms = [
-   'remove_nodes(op=Identity)', 
-   'strip_unused_nodes',
-   'fold_batch_norms',
-   'fold_constants(ignore_errors=true)'
-   # 'merge_duplicate_nodes', # Removing this otherwise in the output graph the topological ordering is broken - fix some other day #TODO_nishkum
-  ]
-  optimized_graph_def = TransformGraph(graph_def, [], [output_tensor.name], transforms)
+  optimized_graph_def = graph_def
   with open('./graphDef.mtdata', 'w') as f:
     f.write(str(optimized_graph_def))
   with open('./graphDef.bin', 'wb') as f:
@@ -60,9 +40,10 @@ def save_graph_metadata(output_tensor, sess, feed_dict):
   tensors_to_evaluate_names = []
   graph = tf.get_default_graph()
   for node in optimized_graph_def.node:
-    cur_output = graph.get_operation_by_name(node.name).outputs[0]
-    tensors_to_evaluate.append(cur_output)
-    tensors_to_evaluate_names.append(node.name)
+    if graph.get_operation_by_name(node.name).outputs:
+      cur_output = graph.get_operation_by_name(node.name).outputs[0]
+      tensors_to_evaluate.append(cur_output)
+      tensors_to_evaluate_names.append(node.name)
   tensors_evaluated = sess.run(tensors_to_evaluate, feed_dict)
   tensors_shape = list(map(lambda x : x.shape, tensors_evaluated))
 
@@ -77,36 +58,6 @@ def save_graph_metadata(output_tensor, sess, feed_dict):
 
   return optimized_graph_def
 
-def updateWeightsForBN(optimized_graph_def, sess, feed_dict):
-  def findNodeInGraphDefWithName(graphDef, curName):
-    for curNode in graphDef.node:
-      if curNode.name == curName:
-        return curNode
-    return None
-
-  print("Updating weights for BN...")
-
-  graph = tf.get_default_graph()
-  graphDef = optimized_graph_def
-
-  for node in graphDef.node:
-      if (node.op == 'FusedBatchNorm' or node.op == 'FusedBatchNormV3'):
-        print("Updating BN weight, node.name = {0}".format(node.name))
-        gamma = graph.get_operation_by_name(node.input[1]).outputs[0]
-        beta = graph.get_operation_by_name(node.input[2]).outputs[0]
-        mu = graph.get_operation_by_name(node.input[3]).outputs[0]
-        variance = graph.get_operation_by_name(node.input[4]).outputs[0]
-
-        epsilon = 1e-5 # Taken from non-fused BN of TF
-        rsigma = tf.rsqrt(variance + epsilon)
-
-        sess.run(tf.assign(gamma, gamma*rsigma))
-        sess.run(tf.assign(beta, beta - gamma*mu))
-        sess.run(tf.assign(mu, tf.zeros(tf.shape(mu))))
-        sess.run(tf.assign(variance, tf.fill(tf.shape(variance), 1-epsilon)))
-
-  print("BN weight updation done. Continuing...")
-
 def dumpImageDataInt(imgData, filename, scalingFac, writeMode):
   print("Dumping image data...")
   with open(filename, writeMode) as ff:
@@ -114,28 +65,30 @@ def dumpImageDataInt(imgData, filename, scalingFac, writeMode):
       ff.write(str(int(xx * (1<<scalingFac))) + ' ')
     ff.write('\n\n')
 
-def dumpTrainedWeightsInt(sess, evalTensors, filename, scalingFac, writeMode, alreadyEvaluated=False):
-  print("Dumping trained weights...")
-  if alreadyEvaluated: finalParameters = evalTensors
-  else: finalParameters = map(lambda x : sess.run(x), evalTensors)
-  with open(filename, writeMode) as ff:
-    for ii, curParameterVal in enumerate(finalParameters):
-      for xx in numpy.nditer(curParameterVal, order='C'):
-        ff.write(str(int(xx * (1<<scalingFac))) + ' ')
-      ff.write('\n\n')
+def dumpInt(ff, tensor, scalingFac, sess, update=lambda x: x):
+  tensor = sess.run(tensor)
+  for xx in numpy.nditer(tensor, order='C'):
+    ff.write((str(int(update(xx) * (1<<scalingFac)))) + ' ')
+  ff.write('\n\n')
 
-def dumpTrainedWeightsFloat(sess, evalTensors, filename, writeMode, alreadyEvaluated=False):
-  print("Dumping trained weights float...")
-  if alreadyEvaluated: finalParameters = evalTensors
-  else: finalParameters = map(lambda x : sess.run(x), evalTensors)
+def dumpWeightsInt(filename, scalingFac, writeMode, sess):
   with open(filename, writeMode) as ff:
-    for ii, curParameterVal in enumerate(finalParameters):
-      for xx in numpy.nditer(curParameterVal, order='C'):
-        ff.write((str(xx)) + ' ')
-      ff.write('\n\n')
+    for op in tf.get_default_graph().get_operations():
+      if op.type in ('Conv2D', 'BiasAdd', 'MatMul'):
+        dumpInt(ff, op.inputs[1], scalingFac, sess)
+      elif op.type in ('FusedBatchNorm', 'FusedBatchNormV3'):
+        gamma, beta, mu, variance = op.inputs[1:]
 
-def dumpImgAndWeightsData(sess, imgData, evalTensors, filename, scalingFac, alreadyEvaluated=False):
+        epsilon = 1e-5 # Taken from non-fused BN of TF
+        rsigma = tf.rsqrt(variance + epsilon)
+
+        gamma = gamma * rsigma
+        dumpInt(ff, gamma, scalingFac, sess)
+        dumpInt(ff, beta - gamma * mu, scalingFac, sess)
+        dumpInt(ff, tf.zeros(tf.shape(mu)), scalingFac, sess)
+        dumpInt(ff, tf.fill(tf.shape(variance), 1-epsilon), scalingFac, sess)
+
+def dumpImgAndWeightsData2(sess, imgData, filename, scalingFac):
   print("Starting to dump data...")
   dumpImageDataInt(imgData, filename, scalingFac, 'w')
-  dumpTrainedWeightsInt(sess, evalTensors, filename, scalingFac, 'a', alreadyEvaluated=alreadyEvaluated)
-
+  dumpWeightsInt(filename, scalingFac, 'a', sess)

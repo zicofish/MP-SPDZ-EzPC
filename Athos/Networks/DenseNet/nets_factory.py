@@ -19,11 +19,9 @@ from __future__ import division
 from __future__ import print_function
 import functools
 
-import tensorflow as tf
-
 import densenet
 
-slim = tf.contrib.slim
+import tf_slim as slim
 
 networks_map = {
         'densenet121': densenet.densenet121,

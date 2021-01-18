@@ -29,7 +29,7 @@ import os, sys
 import time
 import numpy
 import argparse
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import _pickle as pickle
 import Resnet_Model
 
@@ -118,7 +118,7 @@ class ImagenetModel(Resnet_Model.Model):
 
 ##############################################
 
-def infer(savePreTrainedWeightsInt, savePreTrainedWeightsFloat, scalingFac, runPrediction, saveImgAndWtData):
+def infer(scalingFac, runPrediction, saveImgAndWtData):
   x = tf.placeholder(tf.float32, shape=(None, 224, 224, 3), name='input_x')
   # y = tf.placeholder(tf.int64, shape=(None), name='input_y')
   
@@ -146,12 +146,10 @@ def infer(savePreTrainedWeightsInt, savePreTrainedWeightsFloat, scalingFac, runP
 
     optimized_graph_def = DumpTFMtData.save_graph_metadata(output_tensor, sess, feed_dict)
 
-    if savePreTrainedWeightsInt or savePreTrainedWeightsFloat or runPrediction or saveImgAndWtData:
+    if runPrediction or saveImgAndWtData:
       modelPath = './PreTrainedModel/resnet_v2_fp32_savedmodel_NHWC/1538687283/variables/variables'
       saver = tf.train.Saver()
       saver.restore(sess, modelPath)
-      if savePreTrainedWeightsInt or savePreTrainedWeightsFloat or saveImgAndWtData:
-        DumpTFMtData.updateWeightsForBN(optimized_graph_def, sess, feed_dict)
 
     predictions = None
 
@@ -164,25 +162,14 @@ def infer(savePreTrainedWeightsInt, savePreTrainedWeightsFloat, scalingFac, runP
       duration = end_time - start_time
       print("Time taken in prediction : ", duration)
 
-    trainVarsName = []
-    for node in optimized_graph_def.node:
-      if node.op=="VariableV2":
-        trainVarsName.append(node.name)
-    trainVars = list(map(lambda x : tf.get_default_graph().get_operation_by_name(x).outputs[0] , trainVarsName))
-    if savePreTrainedWeightsInt:
-      DumpTFMtData.dumpTrainedWeights(sess, trainVars, 'ResNet_img_input_weights_int.inp', scalingFac, 'w')
     if saveImgAndWtData:
-      DumpTFMtData.dumpImgAndWeightsData(sess, images[0], trainVars, 'ResNet_img_input.inp', scalingFac)
-    if savePreTrainedWeightsFloat:
-      DumpTFMtData.dumpTrainedWeightsFloat(sess, trainVars, 'ResNet_img_input_weights_float.inp', 'w')
+      DumpTFMtData.dumpImgAndWeightsData2(sess, images[0], 'ResNet_img_input.inp', scalingFac)
 
     return predictions
 
 def parseArgs():
   parser = argparse.ArgumentParser()
 
-  parser.add_argument("--savePreTrainedWeightsInt", type=bool, default=False, help="savePreTrainedWeightsInt")
-  parser.add_argument("--savePreTrainedWeightsFloat", type=bool, default=False, help="savePreTrainedWeightsFloat")
   parser.add_argument("--scalingFac", type=int, default=15, help="scalingFac")
   parser.add_argument("--runPrediction", type=bool, default=False, help="runPrediction")
   parser.add_argument("--saveImgAndWtData", type=bool, default=False, help="saveImgAndWtData")
@@ -193,9 +180,7 @@ def parseArgs():
 def main():
   pred = None
   args = parseArgs()
-  pred = infer(args.savePreTrainedWeightsInt,
-               args.savePreTrainedWeightsFloat,
-               args.scalingFac,
+  pred = infer(args.scalingFac,
                args.runPrediction,
                args.saveImgAndWtData)
   print(pred)
