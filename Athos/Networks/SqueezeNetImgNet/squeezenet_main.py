@@ -14,14 +14,8 @@ import DumpTFMtData
 
 def imread_resize(path):
     img_orig = Image.open(path).convert("RGB")
+    img = np.array(img_orig.resize((227, 227), Image.Resampling.BILINEAR))
     img_orig = np.asarray(img_orig)
-    
-    # NOTE: scipy.misc.imresize is deprecated in > v1.1.0. 
-    #   But i cannot find a suitable replacement for this which returns 
-    #   exactly the same float value after resizing as scipy.misc.resize.
-    #   So, as an alternative, try reinstalling scipy v1.1.0 and then run this code.
-    #   Install Scipy v1.1 as : pip3 install scipy==1.1.0
-    img = scipy.misc.imresize(img_orig, (227, 227)).astype(np.float) 
     if len(img.shape) == 2:
         # grayscale
         img = np.dstack((img,img,img))
