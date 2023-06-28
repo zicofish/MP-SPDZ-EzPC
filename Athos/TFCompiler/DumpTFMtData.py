@@ -61,12 +61,11 @@ def save_graph_metadata(output_tensor, sess, feed_dict):
 def dumpImageDataInt(imgData, filename, scalingFac, writeMode):
   print("Dumping image data...")
   with open(filename, writeMode) as ff:
-    numpy.savetxt(ff, imgData.flatten('C') * (1 << scalingFac), '%d', newline=' ')
+    numpy.array(imgData).tofile(ff)
 
 def dumpInt(ff, tensor, scalingFac, sess, update=lambda x: x):
   tensor = sess.run(tensor)
-  numpy.savetxt(ff, tensor.flatten('C') * (1 << scalingFac), '%d', newline=' ')
-  ff.write('\n\n')
+  tensor.tofile(ff)
 
 def dumpWeightsInt(filename, scalingFac, writeMode, sess):
   with open(filename, writeMode) as ff:
