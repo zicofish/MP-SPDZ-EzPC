@@ -31,9 +31,7 @@ import tempfile
 
 import numpy as np
 
-from tensorflow.examples.tutorials.mnist import input_data
-
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import time
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'TFCompiler'))
@@ -64,7 +62,7 @@ def deepnn(x):
   with tf.name_scope('conv1'):
     W_conv1 = weight_variable([5, 5, 1, 16])
     b_conv1 = bias_variable([16])
-    h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
+    h_conv1 = tf.nn.relu(tf.nn.bias_add(conv2d(x_image, W_conv1), b_conv1))
 
   # Pooling layer - downsamples by 2X.
   with tf.name_scope('pool1'):
@@ -74,7 +72,7 @@ def deepnn(x):
   with tf.name_scope('conv2'):
     W_conv2 = weight_variable([5, 5, 16, 16])
     b_conv2 = bias_variable([16])
-    h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
+    h_conv2 = tf.nn.relu(tf.nn.bias_add(conv2d(h_pool1, W_conv2), b_conv2))
 
   # Second pooling layer.
   with tf.name_scope('pool2'):
@@ -87,7 +85,7 @@ def deepnn(x):
     b_fc1 = bias_variable([100])
 
     h_pool2_flat = tf.reshape(h_pool2, [-1, 256])
-    h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
+    h_fc1 = tf.nn.relu(tf.nn.bias_add(tf.matmul(h_pool2_flat, W_fc1), b_fc1))
 
   # Dropout - controls the complexity of the model, prevents co-adaptation of
   # features.
@@ -100,7 +98,7 @@ def deepnn(x):
     W_fc2 = weight_variable([100, 10])
     b_fc2 = bias_variable([10])
 
-    y_conv = tf.matmul(h_fc1, W_fc2) + b_fc2
+    y_conv = tf.nn.bias_add(tf.matmul(h_fc1, W_fc2), b_fc2)
   return y_conv, keep_prob, [W_conv1, b_conv1, W_conv2, b_conv2, W_fc1, b_fc1, W_fc2, b_fc2]
 
 def conv2d(x, W):
@@ -129,9 +127,10 @@ def findLabel(oneHotAns):
   return -1
 
 def main(_):
-  mnist = input_data.read_data_sets(FLAGS.data_dir, one_hot=True,seed=1)
-  x = tf.placeholder(tf.float32, [None, 784])
-  y_ = tf.placeholder(tf.float32, [None, 10])
+  mnist = tf.keras.datasets.mnist.load_data()
+  batch_size = 12
+  x = tf.placeholder(tf.float32, [batch_size, 784])
+  y_ = tf.placeholder(tf.float32, [batch_size, 10])
   y_conv, keep_prob, modelWeights = deepnn(x)
   pred = tf.argmax(y_conv, 1)
 
@@ -143,8 +142,10 @@ def main(_):
       exit(-1)
 
     curImageNum = int(sys.argv[1])
-    imagex = mnist.test.images[curImageNum:curImageNum+1,:]
-    imagey = mnist.test.labels[curImageNum:curImageNum+1,:]
+    imagex = mnist[1][0][curImageNum:curImageNum+batch_size, :, :]
+    imagex = np.reshape(imagex, (imagex.shape[0], imagex.shape[1] * imagex.shape[2]))
+    imagey = mnist[1][1][curImageNum:curImageNum+batch_size]
+    imagey = np.eye(10)[imagey] # Change to one-hot encoding
     keep_prob_value = 1.0
     feed_dict = {x:imagex, y_:imagey, keep_prob:keep_prob_value}
     
@@ -167,14 +168,14 @@ def main(_):
     print('Result ::::::::: \n', prediction[0])
 
     print("Prediction: ", np.argmax(prediction[0]))
-    print("Actual label: ", findLabel(imagey[0]))
+    print("Actual label: ", imagey[0])
 
     trainVarsName = []
     for node in optimized_graph_def.node:
       if node.op=="VariableV2":
         trainVarsName.append(node.name)
     trainVars = list(map(lambda x : tf.get_default_graph().get_operation_by_name(x).outputs[0] , trainVarsName))
-    DumpTFMtData.dumpImgAndWeightsData(sess, imagex[0], trainVars, 'LenetSmall_mnist_img_' + str(curImageNum) + '.inp', 15)
+    DumpTFMtData.dumpImgAndWeightsData2(sess, imagex, 'LenetSmall_mnist_img_' + str(curImageNum) + '.inp', 15)
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()

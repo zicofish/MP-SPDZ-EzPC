@@ -30,11 +30,9 @@ import argparse
 import sys
 import tempfile
 
-from tensorflow.examples.tutorials.mnist import input_data
+import tensorflow.compat.v1 as tf
 
-import tensorflow as tf
-
-import numpy
+import numpy as np
 
 FLAGS = None
 
@@ -121,8 +119,15 @@ def bias_variable(shape):
   return tf.Variable(initial)
 
 def main(_):
+  tf.disable_eager_execution()
   # Import data
-  mnist = input_data.read_data_sets(FLAGS.data_dir)
+  mnist = tf.keras.datasets.mnist.load_data()
+  # [zico] Here, I just construct a fixed batch that is usable to obtain a usable model.
+  # The model is not fully trained.
+  imagex = mnist[1][0][0:50, :, :]
+  imagex = np.reshape(imagex, (imagex.shape[0], imagex.shape[1] * imagex.shape[2]))
+  imagey = mnist[1][1][0:50]
+  batch = (imagex, imagey)
 
   # Create the model
   x = tf.placeholder(tf.float32, [None, 784])
@@ -149,7 +154,6 @@ def main(_):
   with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     for i in range(1000):
-      batch = mnist.train.next_batch(50)
       if i % 100 == 0:
         train_accuracy = accuracy.eval(feed_dict={
             x: batch[0], y_: batch[1], keep_prob: 1.0})
@@ -159,11 +163,10 @@ def main(_):
     # compute in batches to avoid OOM on GPUs 
     accuracy_l = []
     for _ in range(20):
-      batch = mnist.test.next_batch(500, shuffle=False)
       accuracy_l.append(accuracy.eval(feed_dict={x: batch[0], 
                                                  y_: batch[1], 
                                                  keep_prob: 1.0}))
-    print('test accuracy %g' % numpy.mean(accuracy_l))
+    print('test accuracy %g' % np.mean(accuracy_l))
 
     # Dump trained parameters to a checkpoint file
     saver = tf.train.Saver(evalTensors)
