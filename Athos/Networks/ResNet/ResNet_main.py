@@ -27,7 +27,7 @@ https://github.com/tensorflow/models/tree/master/official/r1/resnet.
 
 import os, sys
 import time
-import numpy
+import numpy as np
 import argparse
 import tensorflow.compat.v1 as tf
 import _pickle as pickle
@@ -119,7 +119,8 @@ class ImagenetModel(Resnet_Model.Model):
 ##############################################
 
 def infer(scalingFac, runPrediction, saveImgAndWtData):
-  x = tf.placeholder(tf.float32, shape=(None, 224, 224, 3), name='input_x')
+  x = tf.placeholder(tf.float32, shape=(12, 224, 224, 3), name='input_x')
+  # x = tf.placeholder(tf.float32, shape=(None, 224, 224, 3), name='input_x')
   # y = tf.placeholder(tf.int64, shape=(None), name='input_y')
   
   imgnet_model = ImagenetModel(50, 'channels_last')
@@ -133,9 +134,9 @@ def infer(scalingFac, runPrediction, saveImgAndWtData):
     
     with open('./SampleImages/n02109961_36_enc.pkl', 'rb') as ff:
       images = pickle.load(ff)
+    images = np.tile(images, (12, 1, 1, 1))
+    print("images shape: ", images.shape)
 
-    numImages = len(images)
-    print("lenimages = ", numImages)
     feed_dict = {x: images}
 
     output_tensor = None
