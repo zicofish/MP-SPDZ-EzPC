@@ -164,7 +164,7 @@ def infer(scalingFac, runPrediction, saveImgAndWtData):
       print("Time taken in prediction : ", duration)
 
     if saveImgAndWtData:
-      DumpTFMtData.dumpImgAndWeightsData2(sess, images[0], 'ResNet_img_input.inp', scalingFac)
+      DumpTFMtData.dumpImgAndWeightsData2(sess, images, 'ResNet_img_input.inp', scalingFac)
 
     return predictions
 
