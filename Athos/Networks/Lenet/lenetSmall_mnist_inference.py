@@ -128,7 +128,7 @@ def findLabel(oneHotAns):
 
 def main(_):
   mnist = tf.keras.datasets.mnist.load_data()
-  batch_size = 12
+  batch_size = 14
   x = tf.placeholder(tf.float32, [batch_size, 784])
   y_ = tf.placeholder(tf.float32, [batch_size, 10])
   y_conv, keep_prob, modelWeights = deepnn(x)

@@ -207,9 +207,11 @@ def main():
     parser = build_parser()
     options = parser.parse_args()
 
+    batch_size = 14
+
     # Loading image
     img_content, orig_shape = imread_resize(options.input)
-    img_content_shape = (12,) + img_content.shape
+    img_content_shape = (batch_size,) + img_content.shape
 
     # Loading ImageNet classes info
     classes = []
@@ -238,7 +240,7 @@ def main():
         final_class = tf.argmax(sqznet['classifier_pool'],3)
 
         sess.run(tf.global_variables_initializer())
-        imageData = np.array([preprocess(img_content, sqz_mean)] * 12)
+        imageData = np.array([preprocess(img_content, sqz_mean)] * batch_size)
 
         feed_dict = {image: imageData}
 

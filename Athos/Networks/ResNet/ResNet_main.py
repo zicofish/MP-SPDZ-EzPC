@@ -119,7 +119,8 @@ class ImagenetModel(Resnet_Model.Model):
 ##############################################
 
 def infer(scalingFac, runPrediction, saveImgAndWtData):
-  x = tf.placeholder(tf.float32, shape=(12, 224, 224, 3), name='input_x')
+  batch_size = 14
+  x = tf.placeholder(tf.float32, shape=(batch_size, 224, 224, 3), name='input_x')
   # x = tf.placeholder(tf.float32, shape=(None, 224, 224, 3), name='input_x')
   # y = tf.placeholder(tf.int64, shape=(None), name='input_y')
   
@@ -134,7 +135,7 @@ def infer(scalingFac, runPrediction, saveImgAndWtData):
     
     with open('./SampleImages/n02109961_36_enc.pkl', 'rb') as ff:
       images = pickle.load(ff)
-    images = np.tile(images, (12, 1, 1, 1))
+    images = np.tile(images, (batch_size, 1, 1, 1))
     print("images shape: ", images.shape)
 
     feed_dict = {x: images}
